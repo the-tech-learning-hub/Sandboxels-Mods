@@ -3597,39 +3597,38 @@ tryMove = function(...args){
 }
 const iCooldownTick = function(pixel, offTime){
     if (pixel.cooldown > -30 && pixel.lastUpdate != pixelTicks){pixel.cooldown -= 1}
-    if (pixel.lastUpdate != pixelTicks){pixel.cooldown -= 1}
-        if (pixel.cooldown < offTime){pixel.iCharge = 0}
-        if (pixel.cooldown <= 0){
-            for (let i in adjacentCoords){
-                let x = pixel.x + adjacentCoords[i][0]
-                let y = pixel.y + adjacentCoords[i][1]
-                if (!isEmpty(x, y, true)){
-                    let otherPixel = pixelMap[x][y]
-                    if (otherPixel.charge){
-                        elements[pixel.element].iCharge(pixel, null)
-                        break;
-                    }
+    if (pixel.cooldown < offTime){pixel.iCharge = 0}
+    if (pixel.cooldown <= 0){
+        for (let i in adjacentCoords){
+            let x = pixel.x + adjacentCoords[i][0]
+            let y = pixel.y + adjacentCoords[i][1]
+            if (!isEmpty(x, y, true)){
+                let otherPixel = pixelMap[x][y]
+                if (otherPixel.charge){
+                    elements[pixel.element].iCharge(pixel, null)
+                    break;
                 }
             }
         }
+    }
 }
 const iChargeCooldown = function(pixel, cooldown){
     pixel.iCharge = 1
-        pixel.cooldown = cooldown
-        pixel.lastUpdate = pixelTicks
-        for (let i of adjacentCoords){
-            let x = pixel.x + i[0]
-            let y = pixel.y + i[1]
-            if (!isEmpty(x, y, true)){
-                let spreadPixel = pixelMap[x][y]
-                if (elements[spreadPixel.element].iConduct && pixel.lastUpdate > spreadPixel.lastUpdate){
-                    elements[spreadPixel.element].iCharge(spreadPixel, pixel)
-                }
-                if (elements[spreadPixel.element].conduct && !spreadPixel.chargeCD && !spreadPixel.charge){
-                    chargePixel(spreadPixel)
-                }
+    pixel.cooldown = cooldown
+    pixel.lastUpdate = pixelTicks
+    for (let i of adjacentCoords){
+        let x = pixel.x + i[0]
+        let y = pixel.y + i[1]
+        if (!isEmpty(x, y, true)){
+            let spreadPixel = pixelMap[x][y]
+            if (elements[spreadPixel.element].iConduct && pixel.lastUpdate > spreadPixel.lastUpdate){
+                elements[spreadPixel.element].iCharge(spreadPixel, pixel)
+            }
+            if (elements[spreadPixel.element].conduct && !spreadPixel.chargeCD && !spreadPixel.charge){
+                chargePixel(spreadPixel)
             }
         }
+    }
 }
 elements.instant_wire = {
     color: "#8ec7a2",
@@ -3649,14 +3648,10 @@ elements.instant_wire = {
     },
     renderer: function(pixel, ctx){
         let _rgb = getPixelColor(pixel.color);
-        pixel.rgb=_rgb
         let _hsv = RGBtoHSV(parseInt(_rgb[0]), parseInt(_rgb[1]), parseInt(_rgb[2]))
-        pixel.hsv=_hsv
         if (!pixel.iCharge){_hsv.v = _hsv.v*0.4}
         let _rgb2 = HSVtoRGB(_hsv.h, _hsv.s, _hsv.v)
-        pixel.rgb2=_rgb2
         let _hex = RGBToHex([_rgb2.r, _rgb2.g, _rgb2.b])
-        pixel.hex=_hex
         drawSquare(ctx, _hex, pixel.x, pixel.y)
     },
     updateOrder: 203847
@@ -3744,14 +3739,10 @@ elements.ilamp = {
     },
     renderer: function(pixel, ctx){
         let _rgb = getPixelColor(pixel.color);
-        pixel.rgb=_rgb
         let _hsv = RGBtoHSV(parseInt(_rgb[0]), parseInt(_rgb[1]), parseInt(_rgb[2]))
-        pixel.hsv=_hsv
         if (!pixel.iCharge){_hsv.v = _hsv.v*0.2}
         let _rgb2 = HSVtoRGB(_hsv.h, _hsv.s, _hsv.v)
-        pixel.rgb2=_rgb2
         let _hex = RGBToHex([_rgb2.r, _rgb2.g, _rgb2.b])
-        pixel.hex=_hex
         drawSquare(ctx, _hex, pixel.x, pixel.y)
     },
 }
