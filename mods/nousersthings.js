@@ -3756,21 +3756,23 @@ elements.iswitch = {
     behavior: behaviors.WALL,
     properties: {lastUpdate: 0, cooldown: 1, dir: [0, 0], iCharge:0},
     tick: function(pixel){
-        let x = pixel.x - pixel.dir[0]
-        let y = pixel.y - pixel.dir[1]
-        if (!isEmpty(x, y, true)){
-            let spreadPixel = pixelMap[x][y]
-            if (elements[spreadPixel.element].iConduct && spreadPixel.cooldown <= 0){
-                elements[spreadPixel.element].iCharge(spreadPixel, pixel)
-            }
-            if (elements[spreadPixel.element].conduct && !spreadPixel.chargeCD && !spreadPixel.charge){
-                chargePixel(spreadPixel)
+        if (pixel.iCharge){
+            let x = pixel.x - pixel.dir[0]
+            let y = pixel.y - pixel.dir[1]
+            if (!isEmpty(x, y, true)){
+                let spreadPixel = pixelMap[x][y]
+                if (elements[spreadPixel.element].iConduct && spreadPixel.cooldown <= 0){
+                    elements[spreadPixel.element].iCharge(spreadPixel, pixel)
+                }
+                if (elements[spreadPixel.element].conduct && !spreadPixel.chargeCD && !spreadPixel.charge){
+                    chargePixel(spreadPixel)
+                }
             }
         }
     },
     iCharge: function(pixel, otherPixel){
         if (pixel.dir[0] != 0 || pixel.dir[1] != 0 && otherPixel.x-pixel.x !== pixel.dir[0] && otherPixel.y-pixel.y !== pixel.dir[1]){return;}
         pixel.dir = [otherPixel.x-pixel.x, otherPixel.y-pixel.y]
-        elements[pixel.element].tick(pixel)
+        pixel.iCharge = pixel.iCharge == 1 ? 0 : 1
     }
 }
