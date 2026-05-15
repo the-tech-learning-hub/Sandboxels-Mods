@@ -1,11 +1,7 @@
 // Bismuth is the best element
 /*
-X heat conducting wall
-X aerogel (?)
 X rename global heat conductor to heat portal, add channels
-X instant wire
 X heat pipe, smart variant
-X rename specific machines to smart machines
 */
 async function _nousersthingsprompt(message, defaultValue = "") { // thanks to ggod for updated prompt function
     return new Promise(resolve => {
@@ -2410,9 +2406,9 @@ elements.anchor = {
     color: "#020c20",
     category: "machines",
     behavior: behaviors.WALL,
-    desc: "Anchor; unpushable and unpullable by pistons.",
+    desc: "Anchor; can not be moved by anything.",
     onSelect: function(){
-        logMessage("Unpushable and unpullable by pistons.")
+        logMessage("Can not be moved by anything.")
     }
 }
 elements.piston_ray_emitter = {
@@ -3346,7 +3342,7 @@ elements.e_void = {
                 if (!isEmpty(x, y, true)){
                     let otherPixel = pixelMap[x][y]
                     if (typeof pixel.filter != "undefined"){
-                        if(isElementInProperty(otherPixel.element, pixel.filter)){deletePixel(otherPixel.x, otherPixel.y)}
+                        if(isElementInProperty(otherPixel.element, pixel.filter) && pixel.element != otherPixel.element){deletePixel(otherPixel.x, otherPixel.y)}
                     } else if (!elements.e_void.ignore.includes(otherPixel.element)){deletePixel(otherPixel.x, otherPixel.y)}
                 }
             }
@@ -3355,7 +3351,7 @@ elements.e_void = {
     name: "e-void"
 }
 elements.smart_anti_void = {
-    color: "#bdffed",
+    color: "#92c6b8",
     category: "special",
     movable: false,
     behavior: behaviors.WALL,
@@ -3378,7 +3374,7 @@ elements.smart_anti_void = {
     grain: 0
 }
 elements.smart_anti_e_void = {
-    color: "#fffebd",
+    color: "#bfbe7c",
     category: "machines",
     movable: false,
     behavior: behaviors.WALL,
@@ -3576,5 +3572,215 @@ elements.silica_gel = {
         soda: {elem2: [null, "sugar", "carbon_dioxide"]},
         seltzer: {elem2: [null, "carbon_dioxide"]},
         clay: {elem2: "clay_soil"}
+    }
+}
+if (!eLists.UNMOVABLE){eLists.UNMOVABLE = [];}
+eLists.UNMOVABLE.push("false_vacuum", "anchor")
+let numerizedUnmovable = false
+runAfterReset(() => {
+    if (!numerizedUnmovable){
+        const newList = []
+        for (let _element in eLists.UNMOVABLE){
+            newList[elements[eLists.UNMOVABLE[_element]].id] = true
+        }
+        eLists.UNMOVABLE = newList
+        numerizedUnmovable = true
+    }
+})
+const oldTryMove = tryMove
+tryMove = function(...args){
+    let pixel = args[0]
+    if (eLists.UNMOVABLE[elements[pixel.element].id]){return false} else{
+        return oldTryMove.apply(undefined, args)
+    }
+}
+const iCooldownTick = function(pixel, offTime){
+    if (pixel.cooldown > -30 && pixel.lastUpdate != pixelTicks){pixel.cooldown -= 1}
+    if (pixel.cooldown < offTime){pixel.iCharge = 0} else {pixel.iCharge = 1}
+    if (pixel.cooldown <= 0){
+        for (let i in adjacentCoords){
+            let x = pixel.x + adjacentCoords[i][0]
+            let y = pixel.y + adjacentCoords[i][1]
+            if (!isEmpty(x, y, true)){
+                let otherPixel = pixelMap[x][y]
+                if (otherPixel.charge){
+                    elements[pixel.element].iCharge(pixel, null)
+                    break;
+                }
+            }
+        }
+    }
+}
+const iChargeCooldown = function(pixel, cooldown){
+    pixel.iCharge = 1
+    pixel.cooldown = cooldown
+    pixel.lastUpdate = pixelTicks
+    for (let i of adjacentCoords){
+        let x = pixel.x + i[0]
+        let y = pixel.y + i[1]
+        if (!isEmpty(x, y, true)){
+            let spreadPixel = pixelMap[x][y]
+            if (elements[spreadPixel.element].iConduct && pixel.lastUpdate > spreadPixel.lastUpdate){
+                elements[spreadPixel.element].iCharge(spreadPixel, pixel)
+            }
+            if (elements[spreadPixel.element].conduct && !spreadPixel.chargeCD && !spreadPixel.charge){
+                chargePixel(spreadPixel)
+            }
+        }
+    }
+}
+elements.instant_wire = {
+    color: "#8ec7a2",
+    behavior: behaviors.WALL,
+    category: "instant machines",
+    properties: {
+        iCharge: 0,
+        lastUpdate: 0,
+        cooldown: 0
+    },
+    iConduct: 1,
+    tick: function(pixel){
+        iCooldownTick(pixel, 4)
+    },
+    iCharge: function(pixel, otherPixel){
+        iChargeCooldown(pixel, 9)
+    },
+    renderer: function(pixel, ctx){
+        let _rgb = getPixelColor(pixel.color);
+        let _hsv = RGBtoHSV(parseInt(_rgb[0]), parseInt(_rgb[1]), parseInt(_rgb[2]))
+        if (!pixel.iCharge){_hsv.v = _hsv.v*0.4}
+        let _rgb2 = HSVtoRGB(_hsv.h, _hsv.s, _hsv.v)
+        let _hex = RGBToHex([_rgb2.r, _rgb2.g, _rgb2.b])
+        drawSquare(ctx, _hex, pixel.x, pixel.y)
+    },
+    updateOrder: 203847
+}
+elements.instant_wire_junction = {
+    color: "#00685a",
+    iConduct: 1,
+    behavior: behaviors.WALL,
+    category: "instant machines",
+    properties: {
+        lastUpdate: 0,
+        cooldown: 1,
+    },
+    iCharge: function(pixel, otherPixel){
+        let dir = [otherPixel.x-pixel.x, otherPixel.y-pixel.y]
+        if (!isEmpty(pixel.x-dir[0], pixel.y-dir[1], true)){
+            let spreadPixel = pixelMap[pixel.x-dir[0]][pixel.y-dir[1]]
+            if (elements[spreadPixel.element].iConduct && spreadPixel.lastUpdate < pixelTicks){
+                elements[spreadPixel.element].iCharge(spreadPixel, pixel)
+            }
+            if (elements[spreadPixel.element].conduct && !spreadPixel.chargeCD && !spreadPixel.charge){
+                chargePixel(spreadPixel)
+            }
+        }
+    }
+}
+elements.iwifi_transmitter = {
+    color: "#85ec8e",
+    iConduct: 1,
+    name: "i-WiFi Transmitter",
+    behavior: behaviors.WALL,
+    category: "instant machines",
+    properties: {lastUpdate:0},
+    onSelect: async function(){
+        let ans = await _nousersthingsprompt("What should the channel of this transmitter be?", 0)
+        if (typeof ans != "undefined"){
+            currentElementProp = {channel:ans}
+        }
+    },
+    tick: function(pixel){
+        iCooldownTick(pixel, 0)
+    },
+    iCharge: function(pixel, otherPixel){
+        iChargeCooldown(pixel, 4)
+        let wifipixels = currentPixels.filter(function(pixelToCheck) {
+            if (pixelToCheck.element == "iwifi_receiver" && pixelToCheck.channel === pixel.channel && pixelToCheck.lastUpdate < pixelTicks){
+                return true;
+            }
+        })
+        for (let i = 0; i < wifipixels.length; i++) {
+            let newPixel = wifipixels[i];
+            elements[newPixel.element].iCharge(newPixel, pixel)
+        }
+    }
+}
+elements.iwifi_receiver = {
+    color: "#b4db6a",
+    iConduct: 1,
+    name: "i-WiFi Receiver",
+    category: "instant machines",
+    behavior: behaviors.WALL,
+    properties: {lastUpdate:0},
+    onSelect: async function(){
+        let ans = await _nousersthingsprompt("What should the channel of this transmitter be?", 0)
+        if (typeof ans != "undefined"){
+            currentElementProp = {channel:ans}
+        }
+    },
+    iCharge: function(pixel, otherPixel){
+        iChargeCooldown(pixel, 0)
+    }
+}
+elements.ilamp = {
+    color: "#ff0000",
+    iConduct: 1,
+    customColor: true,
+    name: "i-Lamp",
+    category: "instant machines",
+    behavior: behaviors.WALL,
+    properties: {lastUpdate: 0, cooldown: 0},
+    grain: 0,
+    tick: function(pixel){
+        iCooldownTick(pixel, -2)
+    },
+    iCharge: function(pixel, otherPixel){
+        iChargeCooldown(pixel, 12)
+    },
+    renderer: function(pixel, ctx){
+        let _rgb = getPixelColor(pixel.color);
+        let _hsv = RGBtoHSV(parseInt(_rgb[0]), parseInt(_rgb[1]), parseInt(_rgb[2]))
+        if (!pixel.iCharge){_hsv.v = _hsv.v*0.2}
+        let _rgb2 = HSVtoRGB(_hsv.h, _hsv.s, _hsv.v)
+        let _hex = RGBToHex([_rgb2.r, _rgb2.g, _rgb2.b])
+        drawSquare(ctx, _hex, pixel.x, pixel.y)
+    },
+}
+elements.iswitch = {
+    color: "#cd70e4",
+    iConduct: 1,
+    name: "i-Switch",
+    category: "instant machines",
+    onSelect: () => {logMessage("Only works for conducting straight across.")},
+    behavior: behaviors.WALL,
+    properties: {lastUpdate: 0, cooldown: 1, dir: [0, 0], iCharge:0},
+    tick: function(pixel){
+        if (pixel.iCharge === 1){
+            let x = pixel.x - pixel.dir[0]
+            let y = pixel.y - pixel.dir[1]
+            if (!isEmpty(x, y, true)){
+                let spreadPixel = pixelMap[x][y]
+                if (elements[spreadPixel.element].iConduct && spreadPixel.cooldown <= 0){
+                    elements[spreadPixel.element].iCharge(spreadPixel, pixel)
+                }
+                if (elements[spreadPixel.element].conduct && !spreadPixel.chargeCD && !spreadPixel.charge){
+                    chargePixel(spreadPixel)
+                }
+            }
+        }
+    },
+    iCharge: function(pixel, otherPixel){
+        if (pixel.dir[0] == 0 && pixel.dir[1] == 0){
+            pixel.dir = [otherPixel.x-pixel.x, otherPixel.y-pixel.y]
+        }
+        if (otherPixel.x-pixel.x == pixel.dir[0] && otherPixel.y-pixel.y == pixel.dir[1]){pixel.iCharge = pixel.iCharge == 1 ? 0 : 1} 
+    }
+}
+const oldShockTool = elements.shock.tool;
+elements.shock.tool = function(pixel){
+    oldShockTool(pixel);
+    if (elements[pixel.element].iConduct && pixel.cooldown <= 0){
+        elements[pixel.element].iCharge(pixel, pixel)
     }
 }
